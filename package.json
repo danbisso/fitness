@@ -1,0 +1,39 @@
+{
+  "name": "fitness-tracker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "react-router build",
+    "dev": "react-router dev",
+    "typecheck": "wrangler types && react-router typegen && tsc -b",
+    "deploy": "npm run build && wrangler deploy",
+    "preview": "npm run build && vite preview",
+    "cf-typegen": "wrangler types",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:local": "wrangler d1 migrations apply fitness-tracker-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply fitness-tracker-db --remote",
+    "db:seed:local": "node scripts/seed.mjs && wrangler d1 execute fitness-tracker-db --local --file=seed.sql",
+    "db:seed:remote": "node scripts/seed.mjs && wrangler d1 execute fitness-tracker-db --remote --file=seed.sql",
+    "postinstall": "wrangler types"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.45.2",
+    "isbot": "^5.1.36",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-router": "^8"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.52.1",
+    "@react-router/dev": "^8",
+    "@tailwindcss/vite": "^4.2.2",
+    "@types/node": "^22.20.1",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "drizzle-kit": "^0.31.10",
+    "tailwindcss": "^4.2.2",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.3",
+    "wrangler": "^4.123.0"
+  }
+}
