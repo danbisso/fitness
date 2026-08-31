@@ -1,0 +1,1 @@
+ALTER TABLE `exercises` DROP COLUMN `current_step_id`;

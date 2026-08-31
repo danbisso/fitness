@@ -2,12 +2,11 @@ import { sqliteTable, integer, text, real } from "drizzle-orm/sqlite-core";
 import { relations } from "drizzle-orm";
 
 // An exercise, e.g. "Barbell Squat". Its progression is a freeform ordered
-// list of steps ("25lb × 5", "8kg, 9 reps", "Decline, 8 reps", ...).
-// currentStepId points at the load to use next time the exercise comes up.
+// list of steps ("25lb x 5", "8kg, 9 reps", "Decline, 8 reps", ...). The step
+// to prescribe is derived from the exercise's latest logged workout entry.
 export const exercises = sqliteTable("exercises", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull(),
-  currentStepId: integer("current_step_id"),
 });
 
 export const progressionSteps = sqliteTable("progression_steps", {
@@ -19,11 +18,14 @@ export const progressionSteps = sqliteTable("progression_steps", {
   description: text("description").notNull(),
 });
 
-// A workout plan, e.g. "Workout A". Workouts alternate between plans.
+// A workout plan, e.g. "Workout A". Workouts alternate between the active
+// (non-archived) plans; archived plans keep their history but leave the
+// rotation and can't be deleted once workouts reference them.
 export const plans = sqliteTable("plans", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull(),
   position: integer("position").notNull(),
+  archived: integer("archived", { mode: "boolean" }).notNull().default(false),
 });
 
 export const planExercises = sqliteTable("plan_exercises", {
@@ -67,10 +69,17 @@ export const gutLogs = sqliteTable("gut_logs", {
   notes: text("notes"),
 });
 
+// Single-user app settings, e.g. "daily_calorie_target" -> "2000".
+export const settings = sqliteTable("settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+});
+
 export const foodLogs = sqliteTable("food_logs", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   date: text("date").notNull(), // YYYY-MM-DD
   food: text("food").notNull(),
+  calories: integer("calories"),
 });
 
 export const exercisesRelations = relations(exercises, ({ many }) => ({

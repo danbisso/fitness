@@ -1,18 +1,15 @@
 import { NavLink, Outlet } from "react-router";
 
 const links = [
-  { to: "/", label: "Workout" },
-  { to: "/workouts", label: "History" },
-  { to: "/exercises", label: "Exercises" },
-  { to: "/plans", label: "Plans" },
-  { to: "/gut", label: "Gut Log" },
-  { to: "/food", label: "Food Log" },
+  { to: "/", label: "Food" },
+  { to: "/workouts", label: "Workouts" },
+  { to: "/gut", label: "Gut" },
 ];
 
 export default function Layout() {
   return (
-    <div className="min-h-screen text-gray-900 dark:text-gray-100">
-      <nav className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+    <div className="min-h-screen">
+      <nav className="border-b bg-card">
         <div className="mx-auto max-w-3xl px-4 flex gap-1 overflow-x-auto">
           {links.map((l) => (
             <NavLink
@@ -21,8 +18,8 @@ export default function Layout() {
               className={({ isActive }) =>
                 `whitespace-nowrap px-3 py-3 text-sm font-medium border-b-2 ${
                   isActive
-                    ? "border-blue-600 text-blue-600 dark:text-blue-400"
-                    : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+                    ? "border-primary text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
                 }`
               }
             >

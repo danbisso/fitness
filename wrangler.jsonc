@@ -7,13 +7,11 @@
 	"name": "fitness-tracker",
 	"compatibility_date": "2026-08-14",
 	"main": "./workers/app.ts",
-	// TODO before first deploy: run `npx wrangler d1 create fitness-tracker-db`
-	// and replace database_id below with the real one from its output.
 	"d1_databases": [
 		{
 			"binding": "DB",
 			"database_name": "fitness-tracker-db",
-			"database_id": "00000000-0000-0000-0000-000000000000",
+			"database_id": "b24b7bdb-a28b-4a1b-8bfa-308486d7861a",
 			"migrations_dir": "./drizzle"
 		}
 	],

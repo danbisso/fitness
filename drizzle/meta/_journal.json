@@ -8,6 +8,34 @@
       "when": 1786682091389,
       "tag": "0000_broken_microbe",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1786934357993,
+      "tag": "0001_nebulous_tarantula",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1786935196302,
+      "tag": "0002_neat_changeling",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1788124869627,
+      "tag": "0003_sweet_aaron_stack",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1788125611797,
+      "tag": "0004_wild_maximus",
+      "breakpoints": true
     }
   ]
 }

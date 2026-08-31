@@ -1,0 +1,1 @@
+ALTER TABLE `plans` ADD `archived` integer DEFAULT false NOT NULL;

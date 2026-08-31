@@ -1,0 +1,1 @@
+ALTER TABLE `food_logs` ADD `calories` integer;
