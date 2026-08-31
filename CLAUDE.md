@@ -61,8 +61,13 @@ browser build and crashes client-side navigation.
 
 - Dev: `npm run dev` (local D1 state in `.wrangler/state/`)
 - Schema change: `npm run db:generate` → `npm run db:migrate:local` / `:remote`
-- Re-seed a fresh local DB: `npm run db:migrate:local && npm run db:seed:local`
-  (seed generated from the CSVs by `scripts/seed.mjs`; one-time — not idempotent)
+- Re-seed a fresh local DB: `npm run db:migrate:local`, then import a data dump:
+  `wrangler d1 execute fitness-tracker-db --local --file=<backup>.sql` (with the
+  dev server stopped). Fresh dumps: `wrangler d1 export fitness-tracker-db
+  --remote --output=backup-YYYY-MM-DD.sql`. The old CSV→seed.sql path
+  (`db:seed:local` / `scripts/seed.mjs`) is defunct: the source CSVs and
+  seed.sql were removed 2026-08-31 (personal data, kept out of git — root
+  `*.csv`/`*.sql` are gitignored and must never be committed).
 - Typecheck: `npm run typecheck`
 - Deploy: `npm run deploy` (the user runs it on their Mac — the sandbox has no
   Cloudflare auth). The remote D1 is created, migrated, and data-imported;

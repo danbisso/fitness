@@ -15,3 +15,7 @@ worker-configuration.d.ts
 
 !.dev.vars.example
 !.env.example
+
+# Personal data — source CSVs and generated/exported DB dumps stay local
+*.csv
+/*.sql
