@@ -9,20 +9,23 @@ import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Field, FieldLabel } from "~/components/ui/field";
 import { Input } from "~/components/ui/input";
 import { LoadMoreSentinel, pageCount } from "~/components/LoadMore";
-import { DateField, utcToday } from "~/lib/ui";
-import { dailyTargetUpdate, fieldErrors, foodLogInsert } from "~/lib/validation";
+import { DateField, addDays, appToday, daysBetween, mondayOf } from "~/lib/ui";
+import {
+  dailyTargetUpdate,
+  fieldErrors,
+  foodLogInsert,
+  foodLogUpdate,
+} from "~/lib/validation";
 import type { Route } from "./+types/food";
 
 const TARGET_KEY = "daily_calorie_target";
 const TARGET_DEFAULT = 2000;
 
-const DAY_MS = 86400000;
-
-// Calories summed per weekday (Mon..Sun) for the week starting at mondayMs.
-function weekTotals(logs: { date: string; calories: number | null }[], mondayMs: number) {
+// Calories summed per weekday (Mon..Sun) for the week starting at monday.
+function weekTotals(logs: { date: string; calories: number | null }[], monday: string) {
   const out = Array(7).fill(0);
   for (const l of logs) {
-    const i = Math.floor((Date.parse(l.date) - mondayMs) / DAY_MS);
+    const i = daysBetween(monday, l.date);
     if (i >= 0 && i < 7) out[i] += l.calories ?? 0;
   }
   return out;
@@ -54,10 +57,9 @@ async function loadQuickAdds() {
 
 export async function loader({ request }: Route.LoaderArgs) {
   const count = pageCount(request);
-  const today = utcToday();
-  const todayMs = Date.parse(today);
-  const mondayCurr = todayMs - ((new Date(todayMs).getUTCDay() + 6) % 7) * DAY_MS;
-  const prevMonday = new Date(mondayCurr - 7 * DAY_MS).toISOString().slice(0, 10);
+  const today = appToday();
+  const mondayCurr = mondayOf(today);
+  const mondayPrev = addDays(mondayCurr, -7);
 
   const [rows, weekRows, targetRow, quickAdds] = await Promise.all([
     // A few extra rows so the page can be extended to a whole-day boundary.
@@ -68,7 +70,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     // Chart + today's total only need the current and previous week.
     db.query.foodLogs.findMany({
       columns: { date: true, calories: true },
-      where: (f, { gte }) => gte(f.date, prevMonday),
+      where: (f, { gte }) => gte(f.date, mondayPrev),
     }),
     db.query.settings.findFirst({ where: (s, { eq }) => eq(s.key, TARGET_KEY) }),
     loadQuickAdds(),
@@ -91,17 +93,27 @@ export async function loader({ request }: Route.LoaderArgs) {
     target,
     todayTotal,
     curr: weekTotals(weekRows, mondayCurr),
-    prev: weekTotals(weekRows, mondayCurr - 7 * DAY_MS),
+    prev: weekTotals(weekRows, mondayPrev),
   };
 }
 
 export async function action({ request }: Route.ActionArgs) {
   const form = await request.formData();
-  if (form.get("intent") === "delete") {
+  const intent = form.get("intent");
+  if (intent === "delete") {
     await db.delete(foodLogs).where(eq(foodLogs.id, Number(form.get("id"))));
     return { ok: true };
   }
-  if (form.get("intent") === "set-target") {
+  if (intent === "update") {
+    const parsed = foodLogUpdate.safeParse(Object.fromEntries(form));
+    if (!parsed.success) {
+      return data({ errors: fieldErrors(parsed.error) }, { status: 400 });
+    }
+    const { id, ...values } = parsed.data;
+    await db.update(foodLogs).set(values).where(eq(foodLogs.id, id));
+    return { ok: true };
+  }
+  if (intent === "set-target") {
     const parsed = dailyTargetUpdate.safeParse(Object.fromEntries(form));
     if (!parsed.success) {
       return data({ errors: fieldErrors(parsed.error) }, { status: 400 });
@@ -126,20 +138,31 @@ export default function Food({ loaderData, actionData }: Route.ComponentProps) {
     loaderData;
   const formRef = useRef<HTMLFormElement>(null);
   const [editingTarget, setEditingTarget] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
 
   const errors =
     actionData && "errors" in actionData ? actionData.errors : null;
 
-  // Clear the entry fields after a successful log (date stays put).
+  // Clear the entry fields after a successful action (date stays put) and
+  // leave any edit mode.
   useEffect(() => {
-    if (actionData && "ok" in actionData && actionData.ok && formRef.current) {
-      for (const name of ["food", "calories"]) {
-        const el = formRef.current.elements.namedItem(name);
-        if (el instanceof HTMLInputElement) el.value = "";
+    if (actionData && "ok" in actionData && actionData.ok) {
+      if (formRef.current) {
+        for (const name of ["food", "calories"]) {
+          const el = formRef.current.elements.namedItem(name);
+          if (el instanceof HTMLInputElement) el.value = "";
+        }
       }
       setEditingTarget(false);
+      setEditingId(null);
     }
   }, [actionData]);
+
+  const errorText = errors && (
+    <p className="mt-2 text-sm text-destructive">
+      {Object.values(errors).flat().join(" · ")}
+    </p>
+  );
 
   function bumpCalories(delta: number) {
     const el = formRef.current?.elements.namedItem("calories");
@@ -186,7 +209,7 @@ export default function Food({ loaderData, actionData }: Route.ComponentProps) {
           <Form ref={formRef} method="post" className="flex gap-2 items-end flex-wrap">
             <Field className="w-auto">
               <FieldLabel>Date</FieldLabel>
-              <DateField serverToday={today} />
+              <DateField defaultValue={today} />
             </Field>
             <Field className="grow min-w-48">
               <FieldLabel htmlFor="food">What did you eat?</FieldLabel>
@@ -225,11 +248,7 @@ export default function Food({ loaderData, actionData }: Route.ComponentProps) {
               <Button type="submit">Log</Button>
             </div>
           </Form>
-          {errors && (
-            <p className="mt-2 text-sm text-destructive">
-              {Object.values(errors).flat().join(" · ")}
-            </p>
-          )}
+          {editingId == null && errorText}
         </CardContent>
       </Card>
 
@@ -311,29 +330,78 @@ export default function Food({ loaderData, actionData }: Route.ComponentProps) {
           </CardHeader>
           <CardContent>
             <ul className="divide-y divide-border">
-              {g.items.map((l) => (
-                <li key={l.id} className="flex items-baseline gap-3 py-1.5 text-sm">
-                  <span className="grow">{l.food}</span>
-                  <span
-                    className="text-muted-foreground"
-                    style={{ fontVariantNumeric: "tabular-nums" }}
-                  >
-                    {l.calories != null ? l.calories.toLocaleString("en-US") : "—"}
-                  </span>
-                  <Form
-                    method="post"
-                    onSubmit={(e) => {
-                      if (!confirm("Delete this entry?")) e.preventDefault();
-                    }}
-                  >
-                    <input type="hidden" name="intent" value="delete" />
-                    <input type="hidden" name="id" value={l.id} />
-                    <Button type="submit" variant="ghost" size="xs" className="text-muted-foreground hover:text-destructive">
-                      delete
+              {g.items.map((l) =>
+                editingId === l.id ? (
+                  <li key={l.id} className="py-1.5">
+                    <Form method="post" className="flex gap-2 items-end flex-wrap">
+                      <input type="hidden" name="intent" value="update" />
+                      <input type="hidden" name="id" value={l.id} />
+                      <Field className="w-auto">
+                        <FieldLabel>Date</FieldLabel>
+                        <DateField defaultValue={l.date} />
+                      </Field>
+                      <Field className="grow min-w-48">
+                        <FieldLabel htmlFor={`food-${l.id}`}>Food</FieldLabel>
+                        <Input
+                          id={`food-${l.id}`}
+                          type="text"
+                          name="food"
+                          defaultValue={l.food}
+                          required
+                        />
+                      </Field>
+                      <Field className="w-28">
+                        <FieldLabel htmlFor={`calories-${l.id}`}>Calories</FieldLabel>
+                        <Input
+                          id={`calories-${l.id}`}
+                          type="number"
+                          name="calories"
+                          min="0"
+                          defaultValue={l.calories ?? ""}
+                        />
+                      </Field>
+                      <div className="flex items-end gap-1.5">
+                        <Button type="submit">Save</Button>
+                        <Button type="button" variant="outline" onClick={() => setEditingId(null)}>
+                          Cancel
+                        </Button>
+                      </div>
+                    </Form>
+                    {errorText}
+                  </li>
+                ) : (
+                  <li key={l.id} className="flex items-baseline gap-3 py-1.5 text-sm">
+                    <span className="grow">{l.food}</span>
+                    <span
+                      className="text-muted-foreground"
+                      style={{ fontVariantNumeric: "tabular-nums" }}
+                    >
+                      {l.calories != null ? l.calories.toLocaleString("en-US") : "—"}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      className="text-muted-foreground hover:text-foreground"
+                      onClick={() => setEditingId(l.id)}
+                    >
+                      edit
                     </Button>
-                  </Form>
-                </li>
-              ))}
+                    <Form
+                      method="post"
+                      onSubmit={(e) => {
+                        if (!confirm("Delete this entry?")) e.preventDefault();
+                      }}
+                    >
+                      <input type="hidden" name="intent" value="delete" />
+                      <input type="hidden" name="id" value={l.id} />
+                      <Button type="submit" variant="ghost" size="xs" className="text-muted-foreground hover:text-destructive">
+                        delete
+                      </Button>
+                    </Form>
+                  </li>
+                ),
+              )}
             </ul>
             <div className="flex justify-between border-t pt-1.5 mt-1 text-sm font-semibold">
               <span>Total</span>

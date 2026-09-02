@@ -12,8 +12,6 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate:local": "wrangler d1 migrations apply fitness-tracker-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply fitness-tracker-db --remote",
-    "db:seed:local": "node scripts/seed.mjs && wrangler d1 execute fitness-tracker-db --local --file=seed.sql",
-    "db:seed:remote": "node scripts/seed.mjs && wrangler d1 execute fitness-tracker-db --remote --file=seed.sql",
     "postinstall": "wrangler types"
   },
   "dependencies": {

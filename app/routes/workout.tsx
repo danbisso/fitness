@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "~/components/ui/select";
 import { pageCount } from "~/components/LoadMore";
-import { DateField, RESULT_OPTIONS, utcToday } from "~/lib/ui";
+import { DateField, RESULT_OPTIONS, appToday } from "~/lib/ui";
 import { fieldErrors } from "~/lib/validation";
 import { HistorySection } from "~/sections/history";
 import { deleteWorkout, loadHistory } from "~/sections/history.server";
@@ -83,7 +83,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     })),
   );
 
-  return { plan, items, today: utcToday(), history };
+  return { plan, items, today: appToday(), history };
 }
 
 const workoutHeader = z.object({
@@ -100,7 +100,7 @@ export async function action({ request }: Route.ActionArgs) {
   // Default (no intent): log today's workout.
   const parsed = workoutHeader.safeParse({
     planId: form.get("planId"),
-    date: form.get("date") || utcToday(),
+    date: form.get("date") || appToday(),
   });
   if (!parsed.success) {
     return data({ errors: fieldErrors(parsed.error) }, { status: 400 });
@@ -147,7 +147,7 @@ export default function Workout({ loaderData }: Route.ComponentProps) {
           <div className="flex items-end justify-between gap-4 flex-wrap">
             <Field className="w-auto">
               <FieldLabel>Date</FieldLabel>
-              <DateField serverToday={today} />
+              <DateField defaultValue={today} />
             </Field>
             <div className="flex gap-4 pb-2 text-sm font-medium">
               <Link

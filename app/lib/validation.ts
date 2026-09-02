@@ -9,6 +9,8 @@ const optionalNumber = z.preprocess(
   z.number().nullable(),
 );
 
+const rowId = z.coerce.number().int().positive();
+
 const dateYMD = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD");
 
 const emptyToNull = z.preprocess(
@@ -23,6 +25,8 @@ export const gutLogInsert = createInsertSchema(gutLogs, {
   notes: emptyToNull,
 }).omit({ id: true });
 
+export const gutLogUpdate = gutLogInsert.extend({ id: rowId });
+
 export const foodLogInsert = createInsertSchema(foodLogs, {
   date: dateYMD,
   food: z.string().trim().min(1, "What did you eat?"),
@@ -31,6 +35,8 @@ export const foodLogInsert = createInsertSchema(foodLogs, {
     z.number().int().min(0).nullable(),
   ),
 }).omit({ id: true });
+
+export const foodLogUpdate = foodLogInsert.extend({ id: rowId });
 
 export const dailyTargetUpdate = z.object({
   target: z.coerce.number().int().min(1, "Enter a daily calorie target"),

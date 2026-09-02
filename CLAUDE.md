@@ -2,8 +2,9 @@
 
 Personal fitness tracker: alternating A/B workouts with auto-advancing progressions,
 a gut log (weight/waist + charts), and a food log. Stack rationale and full setup
-guide: see `rr7-cloudflare-drizzle-starter.md`. Original spreadsheet CSVs in this
-folder are the source the seed data was derived from.
+guide: see `rr7-cloudflare-drizzle-starter.md`. The remote D1 is the source of
+truth for all data (D1 Time Travel gives point-in-time recovery); no data files
+live in the repo.
 
 ## Working preferences
 
@@ -64,10 +65,10 @@ browser build and crashes client-side navigation.
 - Re-seed a fresh local DB: `npm run db:migrate:local`, then import a data dump:
   `wrangler d1 execute fitness-tracker-db --local --file=<backup>.sql` (with the
   dev server stopped). Fresh dumps: `wrangler d1 export fitness-tracker-db
-  --remote --output=backup-YYYY-MM-DD.sql`. The old CSV→seed.sql path
-  (`db:seed:local` / `scripts/seed.mjs`) is defunct: the source CSVs and
-  seed.sql were removed 2026-08-31 (personal data, kept out of git — root
-  `*.csv`/`*.sql` are gitignored and must never be committed).
+  --remote --output=backup-YYYY-MM-DD.sql`. The original CSV→seed pipeline
+  (`scripts/seed.mjs`, `db:seed:*`) was removed 2026-09-01 along with the
+  source CSVs; dumps are personal data, kept out of git (root `*.csv`/`*.sql`
+  are gitignored and must never be committed).
 - Typecheck: `npm run typecheck`
 - Deploy: `npm run deploy` (the user runs it on their Mac — the sandbox has no
   Cloudflare auth). The remote D1 is created, migrated, and data-imported;
@@ -94,14 +95,38 @@ browser build and crashes client-side navigation.
 - **Don't open the local D1 sqlite with `sqlite3` while a dev server runs** —
   even read-only access creates `-wal`/`-shm` files that make workerd throw
   `SQLITE_CORRUPT`. Stop the server first, or use `sqlite3 "file:...?immutable=1"`.
+- **Smoke-testing actions with curl against the local dev DB**: POSTs to the
+  index route need `/?index` (React Router routes a bare `POST /` to the root
+  route, which has no action → 405). Identify a throwaway test row by its own
+  unique content (e.g. `notes=smoke-test`), never by "highest id on the page":
+  lists are paginated by date, so the max id visible can be a real row
+  (2026-09-01: a real gut row was updated+deleted this way and had to be
+  restored from `backup-2026-08-31.sql`). Verify final state with
+  `wrangler d1 execute --local --json --command "select count(*) ..."` after
+  stopping the server; `sqlite3 ...?immutable=1` won't see wrangler's WAL.
 - **Transient dev-only SSR crash after installing new deps**: the first requests
   after Vite re-optimizes dependencies can throw `Cannot read properties of null
   (reading 'useRef')` (two React copies). Restart the dev server; not a code bug.
 
 ### Conventions
 
-- Dates are `TEXT` `YYYY-MM-DD`. Date inputs auto-fill with browser-local today
-  via `DateField` (`app/lib/ui.tsx`).
+- Dates are `TEXT` `YYYY-MM-DD`. **All "today"/relative-date logic uses the
+  server date in the hard-coded `APP_TIME_ZONE` (`America/Costa_Rica`)**:
+  `appToday()` in `app/lib/ui.tsx`, plus `addDays`/`daysBetween`/`mondayOf`
+  for calendar arithmetic on date strings. Loaders return `today` and pass it
+  to `DateField` (`defaultValue`) and to totals / week boundaries / chart
+  cutoffs — the client never computes dates from its own clock. Never use
+  `new Date()`/`toISOString()`/`Date.now()` in routes or components; the
+  earlier UTC-server vs local-browser split made the food page's today total
+  read 0 near midnight (fixed 2026-09-01).
+- **Log forms (food, gut)**: `<Form ref>` + an effect that clears the entry
+  fields (not the date) and exits edit mode whenever the action returns
+  `{ ok: true }` — deletes and updates clear the form too, by design. Log rows
+  edit inline: an `edit` button swaps the row/card for a prefilled form posting
+  `intent=update` + `id` (validated by the `*Update` schemas in
+  `app/lib/validation.ts`); `editingId` state lives in the route component and
+  action errors render under whichever form is active. Workouts redirect after
+  logging instead, so they reset by navigation.
 - Bindings come from `import { env } from "cloudflare:workers"` (see starter guide
   gotchas — not `context.cloudflare.env`).
 - Forms are plain `<Form method="post">` + route actions with an `intent` field;
