@@ -30,7 +30,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     waistPoints: asc
       .filter((l) => l.waistCm != null)
       .map((l) => ({ date: l.date, value: l.waistCm! })),
-    today: appToday(),
+    today: appToday(request),
   };
 }
 
@@ -102,7 +102,7 @@ export default function Gut({ loaderData, actionData }: Route.ComponentProps) {
           <Form ref={formRef} method="post" className="grid gap-3 sm:grid-cols-5 items-end">
             <Field>
               <FieldLabel>Date</FieldLabel>
-              <DateField defaultValue={today} />
+              <DateField key={today} defaultValue={today} />
             </Field>
             <Field>
               <FieldLabel htmlFor="weightKg">Weight (kg)</FieldLabel>
@@ -147,6 +147,8 @@ export default function Gut({ loaderData, actionData }: Route.ComponentProps) {
           <LineChart title="Waist" unit="cm" points={waistPoints.filter(inRange)} />
         </CardContent>
       </Card>
+
+      <h2 className="text-lg font-semibold">History</h2>
 
       {logs.length === 0 && (
         <p className="text-sm text-muted-foreground">Nothing logged yet.</p>

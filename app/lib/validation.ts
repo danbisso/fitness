@@ -38,6 +38,10 @@ export const foodLogInsert = createInsertSchema(foodLogs, {
 
 export const foodLogUpdate = foodLogInsert.extend({ id: rowId });
 
+// Workout edit: header fields only; per-entry fields are keyed by entry id
+// (`step-<id>`, `result-<id>`, `notes-<id>`) and read off the form directly.
+export const workoutUpdate = z.object({ id: rowId, date: dateYMD });
+
 export const dailyTargetUpdate = z.object({
   target: z.coerce.number().int().min(1, "Enter a daily calorie target"),
 });

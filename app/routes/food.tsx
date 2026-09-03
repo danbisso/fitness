@@ -31,7 +31,7 @@ function weekTotals(logs: { date: string; calories: number | null }[], monday: s
   return out;
 }
 
-// The 3 most-logged foods (case-insensitive), each labeled and calorie-filled
+// The 5 most-logged foods (case-insensitive), each labeled and calorie-filled
 // from its most recent entry (most recent, not most common, so it can't go
 // stale and the latest spelling/casing wins).
 async function loadQuickAdds() {
@@ -41,7 +41,7 @@ async function loadQuickAdds() {
     .from(foodLogs)
     .groupBy(lowerFood)
     .orderBy(desc(count()), lowerFood)
-    .limit(3);
+    .limit(5);
   const picks = await Promise.all(
     common.map((c) =>
       db.query.foodLogs.findFirst({
@@ -57,7 +57,7 @@ async function loadQuickAdds() {
 
 export async function loader({ request }: Route.LoaderArgs) {
   const count = pageCount(request);
-  const today = appToday();
+  const today = appToday(request);
   const mondayCurr = mondayOf(today);
   const mondayPrev = addDays(mondayCurr, -7);
 
@@ -209,7 +209,7 @@ export default function Food({ loaderData, actionData }: Route.ComponentProps) {
           <Form ref={formRef} method="post" className="flex gap-2 items-end flex-wrap">
             <Field className="w-auto">
               <FieldLabel>Date</FieldLabel>
-              <DateField defaultValue={today} />
+              <DateField key={today} defaultValue={today} />
             </Field>
             <Field className="grow min-w-48">
               <FieldLabel htmlFor="food">What did you eat?</FieldLabel>
@@ -319,6 +319,8 @@ export default function Food({ loaderData, actionData }: Route.ComponentProps) {
           <WeekBarChart prev={prev} curr={curr} />
         </CardContent>
       </Card>
+
+      <h2 className="text-lg font-semibold">History</h2>
 
       {groups.length === 0 && (
         <p className="text-sm text-muted-foreground">Nothing logged yet.</p>

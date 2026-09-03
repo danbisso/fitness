@@ -44,7 +44,7 @@ shadcn set up with `npx shadcn@latest init` (config in `components.json`).
 `/` (index) food log grouped by date + weekday calories bar chart + daily
 target summary · `/workouts` today's workout logging (date field left,
 Exercises/Plans links right) with the workout history list below
-(`delete-workout` intent; no intent = log workout) · `/exercises` progression
+(`delete-workout` / `update-workout` intents; no intent = log workout; history cards edit inline like food/gut, entries addressed by entry id) · `/exercises` progression
 editor (textarea bulk-edits steps, one per line), linked from `/workouts`,
 not in the top nav · `/plans` plan editor (rename/archive/delete), likewise
 linked from `/workouts` · `/gut` gut log + line charts. Top tabs: Food,
@@ -110,15 +110,27 @@ browser build and crashes client-side navigation.
 
 ### Conventions
 
-- Dates are `TEXT` `YYYY-MM-DD`. **All "today"/relative-date logic uses the
-  server date in the hard-coded `APP_TIME_ZONE` (`America/Costa_Rica`)**:
-  `appToday()` in `app/lib/ui.tsx`, plus `addDays`/`daysBetween`/`mondayOf`
-  for calendar arithmetic on date strings. Loaders return `today` and pass it
-  to `DateField` (`defaultValue`) and to totals / week boundaries / chart
-  cutoffs — the client never computes dates from its own clock. Never use
+- Dates are `TEXT` `YYYY-MM-DD` — **calendar days, never instants**. A stored
+  date is never converted through any time zone, so changing zone only moves
+  the "today" boundary going forward and history stays put (this is what makes
+  travel safe; keep it that way). **All "today"/relative-date logic uses the
+  server date in the user's zone**: `appToday(request)` in `app/lib/ui.tsx`
+  reads the IANA zone from the `tz` cookie (falls back to `DEFAULT_TIME_ZONE`,
+  `America/Costa_Rica`); the layout route's loader reports the zone it used and
+  a layout effect writes the browser's zone into the cookie + revalidates when
+  they differ, so the app follows the device zone when travelling. Use
+  `addDays`/`daysBetween`/`mondayOf` for calendar arithmetic on date strings.
+  Loaders return `today` and pass it to `DateField` (`defaultValue`, plus
+  `key={today}` on new-entry forms so the field remounts when the day rolls
+  over) and to totals / week boundaries / chart cutoffs — the client never
+  computes dates from its own clock, only its zone. Never use
   `new Date()`/`toISOString()`/`Date.now()` in routes or components; the
   earlier UTC-server vs local-browser split made the food page's today total
-  read 0 near midnight (fixed 2026-09-01).
+  read 0 near midnight (fixed 2026-09-01). The layout also revalidates all
+  loaders on `visibilitychange`/`focus`, because a tab left open overnight
+  kept yesterday's date in the form and logged a meal to the wrong day
+  (2026-09-03). Travel days can span an odd number of hours; fix an entry
+  with the date picker if it matters.
 - **Log forms (food, gut)**: `<Form ref>` + an effect that clears the entry
   fields (not the date) and exits edit mode whenever the action returns
   `{ ok: true }` — deletes and updates clear the form too, by design. Log rows
@@ -126,7 +138,11 @@ browser build and crashes client-side navigation.
   `intent=update` + `id` (validated by the `*Update` schemas in
   `app/lib/validation.ts`); `editingId` state lives in the route component and
   action errors render under whichever form is active. Workouts redirect after
-  logging instead, so they reset by navigation.
+  logging instead, so they reset by navigation; their inline edit
+  (`update-workout`) returns `{ ok: true }` like the others. The intake form
+  and the edit form share `ExerciseFields` in `app/sections/history.tsx`.
+  All three pages: one card around the intake form, then an `History` h2,
+  then the log cards.
 - Bindings come from `import { env } from "cloudflare:workers"` (see starter guide
   gotchas — not `context.cloudflare.env`).
 - Forms are plain `<Form method="post">` + route actions with an `intent` field;

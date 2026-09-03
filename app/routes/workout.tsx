@@ -1,23 +1,16 @@
+import { useEffect, useState } from "react";
 import { Form, Link, data, redirect } from "react-router";
 import { z } from "zod";
 import { db } from "~/db";
 import { workoutEntries, workouts } from "~/db/schema";
 import { Button } from "~/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { Card, CardContent } from "~/components/ui/card";
 import { Field, FieldLabel } from "~/components/ui/field";
-import { Input } from "~/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "~/components/ui/select";
 import { pageCount } from "~/components/LoadMore";
-import { DateField, RESULT_OPTIONS, appToday } from "~/lib/ui";
+import { DateField, appToday } from "~/lib/ui";
 import { fieldErrors } from "~/lib/validation";
-import { HistorySection } from "~/sections/history";
-import { deleteWorkout, loadHistory } from "~/sections/history.server";
+import { ExerciseFields, HistorySection } from "~/sections/history";
+import { deleteWorkout, loadHistory, updateWorkout } from "~/sections/history.server";
 import { loadPlans } from "~/sections/plans.server";
 import type { Route } from "./+types/workout";
 
@@ -83,7 +76,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     })),
   );
 
-  return { plan, items, today: appToday(), history };
+  return { plan, items, today: appToday(request), history };
 }
 
 const workoutHeader = z.object({
@@ -94,13 +87,14 @@ const workoutHeader = z.object({
 export async function action({ request }: Route.ActionArgs) {
   const form = await request.formData();
 
-  if (String(form.get("intent") ?? "") === "delete-workout")
-    return deleteWorkout(form);
+  const intent = String(form.get("intent") ?? "");
+  if (intent === "delete-workout") return deleteWorkout(form);
+  if (intent === "update-workout") return updateWorkout(form);
 
   // Default (no intent): log today's workout.
   const parsed = workoutHeader.safeParse({
     planId: form.get("planId"),
-    date: form.get("date") || appToday(),
+    date: form.get("date") || appToday(request),
   });
   if (!parsed.success) {
     return data({ errors: fieldErrors(parsed.error) }, { status: 400 });
@@ -131,123 +125,90 @@ export async function action({ request }: Route.ActionArgs) {
   return redirect("/workouts");
 }
 
-const resultItems = RESULT_OPTIONS.map((r) => ({
-  value: r.value,
-  label: `${r.emoji} ${r.value}`,
-}));
+const planLinks = (
+  <div className="flex gap-4 pb-2 text-sm font-medium">
+    <Link
+      to="/exercises"
+      className="text-muted-foreground underline underline-offset-4 hover:text-foreground"
+    >
+      Exercises
+    </Link>
+    <Link
+      to="/plans"
+      className="text-muted-foreground underline underline-offset-4 hover:text-foreground"
+    >
+      Plans
+    </Link>
+  </div>
+);
 
-export default function Workout({ loaderData }: Route.ComponentProps) {
+export default function Workout({ loaderData, actionData }: Route.ComponentProps) {
   const { plan, items, today, history } = loaderData;
+  const [editingId, setEditingId] = useState<number | null>(null);
+
+  const errors =
+    actionData && "errors" in actionData ? actionData.errors : null;
+
+  // Leave edit mode after a successful update/delete (logging redirects).
+  useEffect(() => {
+    if (actionData && "ok" in actionData && actionData.ok) setEditingId(null);
+  }, [actionData]);
+
+  const errorText = errors && (
+    <p className="mt-2 text-sm text-destructive">
+      {Object.values(errors).flat().join(" · ")}
+    </p>
+  );
 
   return (
-    <div className="space-y-8">
-      {plan ? (
-        <Form method="post" className="space-y-4">
-          <input type="hidden" name="planId" value={plan.id} />
-          <div className="flex items-end justify-between gap-4 flex-wrap">
-            <Field className="w-auto">
-              <FieldLabel>Date</FieldLabel>
-              <DateField defaultValue={today} />
-            </Field>
-            <div className="flex gap-4 pb-2 text-sm font-medium">
-              <Link
-                to="/exercises"
-                className="text-muted-foreground underline underline-offset-4 hover:text-foreground"
-              >
-                Exercises
-              </Link>
-              <Link
-                to="/plans"
-                className="text-muted-foreground underline underline-offset-4 hover:text-foreground"
-              >
-                Plans
-              </Link>
-            </div>
-          </div>
+    <div className="space-y-4">
+      <Card>
+        <CardContent>
+          {plan ? (
+            <Form method="post" className="space-y-4">
+              <input type="hidden" name="planId" value={plan.id} />
+              <div className="flex items-end justify-between gap-4 flex-wrap">
+                <Field className="w-auto">
+                  <FieldLabel>Date</FieldLabel>
+                  <DateField key={today} defaultValue={today} />
+                </Field>
+                {planLinks}
+              </div>
 
-          {items.map((item) => (
-            <Card key={item.exerciseId}>
-              <CardHeader>
-                <CardTitle>{item.name}</CardTitle>
-              </CardHeader>
-              <CardContent className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                <Field>
-                  <FieldLabel>Progression</FieldLabel>
-                  <Select
-                    name={`step-${item.exerciseId}`}
-                    defaultValue={item.prescribed ?? undefined}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {item.steps.map((s) => (
-                        <SelectItem key={s} value={s}>
-                          {s}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field>
-                  <FieldLabel>How did it feel?</FieldLabel>
-                  <Select
-                    name={`result-${item.exerciseId}`}
-                    defaultValue="Felt good!"
-                    items={resultItems}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {resultItems.map((r) => (
-                        <SelectItem key={r.value} value={r.value}>
-                          {r.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field className="col-span-2 sm:col-span-1">
-                  <FieldLabel>Notes</FieldLabel>
-                  <Input
-                    type="text"
-                    name={`notes-${item.exerciseId}`}
-                    placeholder="optional"
+              {items.map((item) => (
+                <div key={item.exerciseId} className="border-t pt-4 space-y-3">
+                  <h3 className="font-medium">{item.name}</h3>
+                  <ExerciseFields
+                    suffix={item.exerciseId}
+                    steps={item.steps}
+                    step={item.prescribed}
+                    result="Felt good!"
                   />
-                </Field>
-              </CardContent>
-            </Card>
-          ))}
+                </div>
+              ))}
 
-          <Button type="submit">Log workout</Button>
-        </Form>
-      ) : (
-        <div className="space-y-4">
-          <div className="flex justify-end gap-4 text-sm font-medium">
-            <Link
-              to="/exercises"
-              className="text-muted-foreground underline underline-offset-4 hover:text-foreground"
-            >
-              Exercises
-            </Link>
-            <Link
-              to="/plans"
-              className="text-muted-foreground underline underline-offset-4 hover:text-foreground"
-            >
-              Plans
-            </Link>
-          </div>
-          <p className="text-muted-foreground">
-            No active workout plans — create one under Plans.
-          </p>
-        </div>
-      )}
+              <Button type="submit">Log workout</Button>
+            </Form>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex justify-end">{planLinks}</div>
+              <p className="text-muted-foreground">
+                No active workout plans — create one under Plans.
+              </p>
+            </div>
+          )}
+          {editingId == null && errorText}
+        </CardContent>
+      </Card>
 
-      <section className="space-y-4">
-        <h2 className="border-t pt-6 text-lg font-semibold">History</h2>
-        <HistorySection workouts={history.workouts} hasMore={history.hasMore} />
-      </section>
+      <h2 className="text-lg font-semibold">History</h2>
+      <HistorySection
+        workouts={history.workouts}
+        hasMore={history.hasMore}
+        editingId={editingId}
+        onEdit={setEditingId}
+        errorText={editingId != null ? errorText : null}
+      />
     </div>
   );
 }
