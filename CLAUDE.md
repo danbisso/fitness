@@ -70,6 +70,9 @@ browser build and crashes client-side navigation.
   source CSVs; dumps are personal data, kept out of git (root `*.csv`/`*.sql`
   are gitignored and must never be committed).
 - Typecheck: `npm run typecheck`
+- Icons: `npm run icons` regenerates `public/icon.svg`, `apple-touch-icon.png`,
+  `icon-192.png`, `icon-512.png` from the inline SVG in `scripts/icons.mjs`
+  (white dumbbell on the dark neutral background; rendered with `sharp`).
 - Deploy: `npm run deploy` (the user runs it on their Mac — the sandbox has no
   Cloudflare auth). The remote D1 is created, migrated, and data-imported;
   `wrangler.jsonc` has the real `database_id`.
@@ -143,6 +146,14 @@ browser build and crashes client-side navigation.
   and the edit form share `ExerciseFields` in `app/sections/history.tsx`.
   All three pages: one card around the intake form, then an `History` h2,
   then the log cards.
+- **PWA (installable, no service worker)**: `public/manifest.webmanifest`
+  (`display: standalone`, icons `any maskable`), linked from `app/root.tsx`
+  together with `apple-touch-icon`, `mobile-web-app-capable`, and
+  scheme-specific `theme-color` metas (white / `#171717`, matching the nav's
+  `bg-card`). The viewport is `viewport-fit=cover`, so the layout pads the nav
+  and main with `env(safe-area-inset-*)`. Deliberately no service worker:
+  every page is server-rendered from D1, so offline caching would only show
+  stale data; iOS Add to Home Screen works without one.
 - Bindings come from `import { env } from "cloudflare:workers"` (see starter guide
   gotchas — not `context.cloudflare.env`).
 - Forms are plain `<Form method="post">` + route actions with an `intent` field;

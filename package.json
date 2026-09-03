@@ -12,7 +12,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate:local": "wrangler d1 migrations apply fitness-tracker-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply fitness-tracker-db --remote",
-    "postinstall": "wrangler types"
+    "postinstall": "wrangler types",
+    "icons": "node scripts/icons.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -40,6 +41,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "drizzle-kit": "^0.31.10",
+    "sharp": "^0.35.4",
     "tailwindcss": "^4.2.2",
     "typescript": "^5.9.3",
     "vite": "^8.0.3",

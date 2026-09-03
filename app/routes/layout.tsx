@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { NavLink, Outlet, useRevalidator } from "react-router";
+import { NavLink, Outlet, useNavigation, useRevalidator } from "react-router";
 import {
   TZ_COOKIE,
   browserTimeZone,
@@ -22,7 +22,11 @@ export async function loader({ request }: Route.LoaderArgs) {
 
 export default function Layout({ loaderData }: Route.ComponentProps) {
   const { timeZone } = loaderData;
-  const { revalidate } = useRevalidator();
+  const { revalidate, state: revalidating } = useRevalidator();
+  const navigation = useNavigation();
+  // Any pending request (navigation, form submit, or a revalidation) dims the
+  // page and blocks taps until the fresh data has landed.
+  const busy = navigation.state !== "idle" || revalidating !== "idle";
 
   // Keep the tz cookie in sync with the browser's zone (it changes when
   // travelling), then re-run the loaders so "today" follows. Skip when the
@@ -51,7 +55,9 @@ export default function Layout({ loaderData }: Route.ComponentProps) {
 
   return (
     <div className="min-h-screen">
-      <nav className="border-b bg-card">
+      {/* Safe-area padding: in standalone mode the page runs under the
+          status bar and home indicator (viewport-fit=cover in root.tsx). */}
+      <nav className="border-b bg-card pt-[env(safe-area-inset-top)]">
         <div className="mx-auto max-w-3xl px-4 flex gap-1 overflow-x-auto">
           {links.map((l) => (
             <NavLink
@@ -70,7 +76,12 @@ export default function Layout({ loaderData }: Route.ComponentProps) {
           ))}
         </div>
       </nav>
-      <main className="mx-auto max-w-3xl px-4 py-6">
+      <main
+        aria-busy={busy}
+        className={`mx-auto max-w-3xl px-4 py-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] transition-opacity ${
+          busy ? "opacity-50 pointer-events-none" : ""
+        }`}
+      >
         <Outlet />
       </main>
     </div>

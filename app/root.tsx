@@ -10,14 +10,31 @@ import {
 import type { Route } from "./+types/root";
 import "./app.css";
 
-export const links: Route.LinksFunction = () => [];
+export const links: Route.LinksFunction = () => [
+  { rel: "manifest", href: "/manifest.webmanifest" },
+  { rel: "icon", href: "/icon.svg", type: "image/svg+xml" },
+  { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
+];
+
+export const meta: Route.MetaFunction = () => [
+  { title: "Fitness Tracker" },
+  // Standalone (home-screen) mode on iOS/Android; the status bar takes the
+  // theme color, which tracks the nav's `bg-card` in each scheme.
+  { name: "mobile-web-app-capable", content: "yes" },
+  { name: "apple-mobile-web-app-title", content: "Fitness" },
+  { name: "theme-color", content: "#ffffff", media: "(prefers-color-scheme: light)" },
+  { name: "theme-color", content: "#171717", media: "(prefers-color-scheme: dark)" },
+];
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <head>
         <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1, viewport-fit=cover"
+        />
         <Meta />
         <Links />
       </head>
