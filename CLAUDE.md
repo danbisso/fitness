@@ -70,9 +70,6 @@ browser build and crashes client-side navigation.
   source CSVs; dumps are personal data, kept out of git (root `*.csv`/`*.sql`
   are gitignored and must never be committed).
 - Typecheck: `npm run typecheck`
-- Icons: `npm run icons` regenerates `public/icon.svg`, `apple-touch-icon.png`,
-  `icon-192.png`, `icon-512.png` from the inline SVG in `scripts/icons.mjs`
-  (white dumbbell on the dark neutral background; rendered with `sharp`).
 - Deploy: `npm run deploy` (the user runs it on their Mac — the sandbox has no
   Cloudflare auth). The remote D1 is created, migrated, and data-imported;
   `wrangler.jsonc` has the real `database_id`.
@@ -147,7 +144,9 @@ browser build and crashes client-side navigation.
   All three pages: one card around the intake form, then an `History` h2,
   then the log cards.
 - **PWA (installable, no service worker)**: `public/manifest.webmanifest`
-  (`display: standalone`, icons `any maskable`), linked from `app/root.tsx`
+  (`display: standalone`, icons `any maskable`; the icon files in `public/`
+  are static one-off assets — a white dumbbell on the dark neutral
+  background — with no generator in the repo), linked from `app/root.tsx`
   together with `apple-touch-icon`, `mobile-web-app-capable`, and
   scheme-specific `theme-color` metas (white / `#171717`, matching the nav's
   `bg-card`). The viewport is `viewport-fit=cover`, so the layout pads the nav
